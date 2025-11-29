@@ -1,0 +1,43 @@
+graph TD
+    A["📱 Google Ads API"] --> B["Data Collection<br/>Layer"]
+    C["📱 Meta Ads API"] --> B
+    D["📱 Naver Ads API"] --> B
+    E["Mock API<br/>FastAPI"] -.->|Dev Only| B
+
+    B --> F["GCS<br/>Raw Storage<br/>gs://bucket/raw/{channel}/yyyy/mm/dd"]
+    F --> G["Data Processing<br/>Layer"]
+
+    G --> H["Staging<br/>Schema Normalization<br/>정규화"]
+    H --> I["Metrics<br/>Calculation<br/>CTR, CPC, CPA, ROAS, CVR"]
+    I --> J["BigQuery<br/>Data Warehouse"]
+
+    J --> K["raw_data<br/>원본"]
+    J --> L["staging_data<br/>정규화"]
+    J --> M["metrics<br/>계산 지표 ⭐<br/>마스터 테이블"]
+
+    M --> N["Looker Studio<br/>Dashboard<br/>자동 리프레시 04:00"]
+
+    O["Apache Airflow<br/>Orchestration<br/>매일 3시 실행"] -.->|Controls & Monitors| B
+    O -.->|Controls & Monitors| G
+    O -.->|Controls & Monitors| J
+
+    N --> P["📊 5 Charts<br/>• ROAS 추이<br/>• 캠페인별 지표<br/>• Top/Bottom 5<br/>• 광고비 분배<br/>• 전환율 추이"]
+
+    Q["🔔 Slack/Email<br/>Notifications"] -.->|on_failure| O
+
+    style A fill:#4285F4,color:#fff
+    style C fill:#1877F2,color:#fff
+    style D fill:#2EC15F,color:#fff
+    style B fill:#FFA500,color:#fff
+    style F fill:#4285F4,color:#fff
+    style G fill:#FF6B6B,color:#fff
+    style H fill:#FF6B6B,color:#fff
+    style I fill:#FF6B6B,color:#fff
+    style J fill:#9C27B0,color:#fff
+    style K fill:#E1BEE7,color:#000
+    style L fill:#E1BEE7,color:#000
+    style M fill:#FFD700,color:#000
+    style N fill:#34A853,color:#fff
+    style O fill:#FF6B9D,color:#fff
+    style P fill:#C8E6C9,color:#000
+    style Q fill:#FF6B6B,color:#fff
