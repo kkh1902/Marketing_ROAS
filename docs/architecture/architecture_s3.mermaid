@@ -1,0 +1,184 @@
+flowchart TB
+
+classDef source fill:#EAF4FF,stroke:#6BA8E5,stroke-width:1px;
+classDef kafka fill:#FFF4E6,stroke:#FFB95A,stroke-width:1px;
+classDef flink fill:#E8FFE8,stroke:#66CC66,stroke-width:1px;
+classDef batch fill:#F3E8FF,stroke:#B084F7,stroke-width:1px;
+classDef analytics fill:#FFF1F7,stroke:#FF7AAE,stroke-width:1px;
+classDef alert fill:#FFEAEA,stroke:#FF6B6B,stroke-width:1px;
+classDef aws fill:#FF9900,stroke:#CC7A00,stroke-width:2px,color:#fff;
+classDef error fill:#FFE4E4,stroke:#FF4444,stroke-width:1px;
+classDef ml fill:#E6F3FF,stroke:#4A90D9,stroke-width:2px;
+
+%% ======================= Source =======================
+subgraph S[Source Layer]
+    A[Avazu train.gz<br>S3 업로드]
+end
+class S,A source;
+
+%% ======================= Ingestion =======================
+subgraph I[Ingestion Layer]
+    P[Kafka Producer<br>EC2 or Lambda]
+    SR[Glue Schema Registry]
+end
+class I,P,SR source;
+
+%% ======================= Kafka Layer =======================
+subgraph K[Streaming - MSK]
+    K1[(MSK Topic<br>ad_events_raw)]
+    K2[(MSK Topic<br>ad_events_error)]
+end
+class K,K1,K2 aws;
+
+%% ======================= DLQ Processing =======================
+subgraph DLQ[DLQ Processing]
+    DC[Lambda<br>DLQ Consumer]
+    ER[(RDS PostgreSQL<br>errors schema)]
+end
+class DLQ,DC,ER error;
+
+%% ======================= Flink Layer =======================
+subgraph F[Flink - EMR or KDA]
+    F1[Flink Streaming Job<br>Kinesis Data Analytics<br>or EMR Flink]
+    F3[(S3 Checkpoint)]
+end
+class F,F1,F3 aws;
+
+%% ======================= S3 Data Lake =======================
+subgraph S3[S3 Data Lake]
+    S3R[(s3://bucket/raw/<br>Parquet)]
+    S3P[(s3://bucket/processed/)]
+    S3F[(s3://bucket/features/<br>Feast Offline)]
+    S3M[(s3://bucket/mlflow/<br>Artifacts)]
+end
+class S3,S3R,S3P,S3F,S3M aws;
+
+%% ======================= Feature Store =======================
+subgraph FS[Feature Store]
+    FST[Feast Registry<br>RDS PostgreSQL]
+    FSO[(ElastiCache Redis<br>Online Store)]
+    FSB[(S3<br>Offline Store)]
+end
+class FS,FST,FSO,FSB ml;
+
+%% ======================= ML Training =======================
+subgraph MLT[ML Training]
+    MLF[MLflow<br>EC2 or SageMaker]
+    TR[SageMaker Training Job<br>XGBoost LightGBM]
+    EV[Evidently AI<br>Lambda or EC2]
+end
+class MLT,MLF,TR,EV ml;
+
+%% ======================= ML Serving =======================
+subgraph MLS[ML Serving]
+    API[SageMaker Endpoint<br>or ECS FastAPI]
+end
+class MLS,API aws;
+
+%% ======================= Cache Layer =======================
+subgraph C[Cache]
+    R[(ElastiCache Redis<br>실시간 CTR)]
+end
+class C,R aws;
+
+%% ======================= Batch Layer =======================
+subgraph B[Batch Layer]
+    AF[MWAA<br>Managed Airflow]
+    B3[dbt Cloud<br>or dbt Core EC2]
+    B4[dbt tests]
+end
+class B,AF,B3,B4 batch;
+
+%% ======================= Airflow DAGs =======================
+subgraph AFD[Airflow DAGs]
+    D1[dag_daily_etl]
+    D2[dag_dbt_run]
+    D3[dag_dlq_retry]
+    D5[dag_feature_pipeline]
+    D6[dag_model_training]
+    D7[dag_model_validation]
+end
+class AFD,D1,D2,D3,D5,D6,D7 batch;
+
+%% ======================= Redshift =======================
+subgraph RS[Redshift]
+    RSR[(realtime schema)]
+    RSD[(analytics schema<br>dbt 마트)]
+end
+class RS,RSR,RSD aws;
+
+%% ======================= Analytics =======================
+subgraph A2[Analytics Layer]
+    ST[Streamlit<br>ECS or EC2<br>실시간 CTR]
+    QS[QuickSight<br>BI 대시보드]
+    ST3[Streamlit<br>ML 대시보드]
+end
+class A2,ST,QS,ST3 analytics;
+
+%% ======================= Monitoring =======================
+subgraph AL[Monitoring]
+    CW[CloudWatch<br>로그 메트릭]
+    SNS[SNS + Lambda<br>Slack 알림]
+end
+class AL,CW,SNS alert;
+
+%% ======================= 메인 흐름 =======================
+A --> P
+P --> SR
+SR --> K1
+K1 --> F1
+F1 --> R
+F1 --> RSR
+R --> ST
+RSR --> ST
+
+F1 --> F3
+F1 --> S3R
+S3R --> AF
+AF --> B3
+B3 --> B4
+B4 --> RSD
+RSD --> QS
+
+%% ======================= Feature Store 흐름 =======================
+F1 --> FSO
+S3R --> S3F
+FST --> FSO
+FST --> S3F
+
+%% ======================= ML Training 흐름 =======================
+S3F --> TR
+TR --> MLF
+MLF --> S3M
+MLF --> API
+RSD --> EV
+EV --> ST3
+EV --> SNS
+
+%% ======================= ML Serving 흐름 =======================
+FSO --> API
+API --> CW
+
+%% ======================= DLQ 흐름 =======================
+P -.->|파싱 실패| K2
+F1 -.->|처리 실패| K2
+K2 --> DC
+DC --> ER
+ER --> D3
+D3 -->|재처리| K1
+
+%% ======================= DAG 연결 =======================
+S3R --> D1
+D1 --> D2
+D2 --> B3
+D2 --> D5
+D5 --> S3F
+D5 --> D6
+D6 --> TR
+D7 --> EV
+
+%% ======================= Monitoring 흐름 =======================
+K1 --> CW
+F1 --> CW
+AF --> CW
+CW --> SNS
