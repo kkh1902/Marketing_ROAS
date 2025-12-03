@@ -1,5 +1,127 @@
-.claude/
+# ==================== Python ====================
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.Python
+env/
+venv/
+ENV/
+.venv
+pip-log.txt
+pip-delete-this-directory.txt
 
-# data 폴더 살리고 나머지 제외 파일 사이즈가 너무 큼
-data/*
-!data/.gitkeep
+# ==================== IDE ====================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+*.sublime-project
+*.sublime-workspace
+
+# ==================== Environment ====================
+.env
+.env.local
+.env.*.local
+.env.prod
+
+# ==================== Data (Git에 올리지 않음) ====================
+# 원본 데이터 (용량이 크므로)
+data/train.gz
+data/test.gz
+data/sampleSubmission.gz
+data/raw/*.gz
+
+# CSV 파일 (큼)
+data/raw/*.csv
+data/processed/*.csv
+data/**/*.csv
+
+# Flink 체크포인트 (로컬 상태)
+data/checkpoints/
+*.checkpoint
+*.state
+
+# ==================== Logs ====================
+*.log
+logs/
+*.log.*
+
+# ==================== Cache ====================
+.pytest_cache/
+.cache/
+.coverage
+htmlcov/
+.hypothesis/
+
+# ==================== Jupyter ====================
+.ipynb_checkpoints/
+*.ipynb
+.jupyter/
+
+# ==================== Database ====================
+*.db
+*.sqlite
+*.sqlite3
+pgdata/
+
+# ==================== Docker ====================
+docker-compose.override.yml
+.dockerignore
+
+# ==================== Airflow ====================
+airflow/logs/
+airflow/dags/__pycache__/
+airflow/plugins/__pycache__/
+
+# ==================== dbt ====================
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# ==================== OS ====================
+.DS_Store
+.AppleDouble
+.LSOverride
+desktop.ini
+
+# ==================== IDE Specific ====================
+.fleet/
+.vscode-server/
+
+# ==================== Temp Files ====================
+*.tmp
+*.bak
+*.swp
+*~
+
+# ==================== Node (선택사항) ====================
+node_modules/
+npm-debug.log
+
+# ==================== Sensitive (중요!) ====================
+*.pem
+*.key
+*.crt
+secrets/
+credentials.json
+service-account-key.json
+
+# ==================== MacOS ====================
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+
+# ==================== claude ====================
+.claude/

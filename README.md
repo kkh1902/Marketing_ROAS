@@ -1,211 +1,243 @@
-# 광고 캠페인 분석 자동화 플랫폼
+## 📄 README.md
 
-> **Google Ads / Meta Ads / Naver Ads** 다채널 광고 데이터를 자동 수집·정제·가공하여
-> 매일 새벽 자동 업데이트되는 **통합 마케팅 대시보드**를 제공하는 엔드투엔드 데이터 파이프라인
+```markdown
+# 🎯 Ad Click Pipeline
 
----
+Kafka, Flink, dbt를 활용한 실시간 광고 클릭 데이터 파이프라인
 
-## 📋 프로젝트 개요
+## 📌 프로젝트 개요
 
-### 핵심 가치
-- **자동화**: 매일 새벽 3시 자동으로 최신 광고 데이터 적재
-- **통합 관리**: 3개 광고 플랫폼 데이터를 하나의 스키마로 통합
-- **즉시 활용**: Looker Studio 대시보드로 ROAS 분석 자동화
+Avazu CTR 데이터셋(40M rows)을 활용한 실시간/배치 하이브리드 데이터 파이프라인입니다.
 
-### 기대 효과
-- 광고 성과 모니터링 자동화
-- 채널별·캠페인별 ROAS 한눈에 파악
-- 의사결정 속도 향상
+### 주요 기능
+- **실시간 처리**: Kafka → Flink로 1분/5분 단위 CTR 집계
+- **배치 처리**: Airflow + dbt로 일별 분석 마트 생성
+- **에러 처리**: DLQ Consumer 자동 retry + Slack 알림
+- **모니터링**: Prometheus + Grafana 시스템 메트릭
 
 ---
 
-## 🏗️ 프로젝트 구조
+## 🏗️ 아키텍처
 
 ```
-marketing_roas/
-├── docs/
-│   ├── PROJECT_REQUIREMENTS.md    # 상세 요구사항 명세
-│   ├── ARCHITECTURE.md            # 파이프라인 아키텍처
-│   ├── API_SETUP.md               # 각 광고 API 설정 가이드
-│   └── DEPLOYMENT.md              # 배포 가이드
-│
-├── src/
-│   ├── __init__.py
-│   ├── config.py                  # 환경 설정 및 credential
-│   ├── collectors/                # 데이터 수집 모듈
-│   │   ├── __init__.py
-│   │   ├── google_ads.py          # Google Ads API
-│   │   ├── meta_ads.py            # Meta Ads API
-│   │   ├── naver_ads.py           # Naver Ads API
-│   │   └── mock_api.py            # Mock 데이터 (개발용)
-│   │
-│   ├── processors/                # 데이터 처리 모듈
-│   │   ├── __init__.py
-│   │   ├── raw_storage.py         # Raw 데이터 GCS/S3 저장
-│   │   ├── staging.py             # Staging 스키마 정규화
-│   │   ├── metrics.py             # 지표 계산 (ROAS, CPC 등)
-│   │   └── validators.py          # 데이터 검증
-│   │
-│   ├── warehouse/                 # DWH 레이어
-│   │   ├── __init__.py
-│   │   ├── bigquery.py            # BigQuery 클라이언트
-│   │   ├── schemas.py             # 테이블 스키마 정의
-│   │   └── sql/                   # 쿼리 템플릿
-│   │       ├── raw.sql
-│   │       ├── staging.sql
-│   │       └── metrics.sql
-│   │
-│   └── utils/
-│       ├── __init__.py
-│       ├── logger.py              # 로깅
-│       ├── slack_notifier.py      # Slack 알림
-│       └── error_handler.py       # 에러 처리
-│
-├── airflow/
-│   ├── dags/
-│   │   ├── __init__.py
-│   │   └── marketing_pipeline.py  # 메인 DAG
-│   │
-│   ├── plugins/
-│   │   └── operators/             # 커스텀 Operator
-│   │
-│   └── config/                    # Airflow 설정
-│       └── airflow.cfg
-│
-├── tests/
-│   ├── __init__.py
-│   ├── test_collectors.py         # 수집 모듈 테스트
-│   ├── test_processors.py         # 처리 모듈 테스트
-│   └── test_e2e.py                # E2E 테스트
-│
-├── docker-compose.yml             # Airflow 로컬 환경
-├── requirements.txt               # Python 패키지
-├── .env.example                   # 환경변수 템플릿
-├── setup.py                       # 패키지 설정
-└── README.md                      # 이 파일
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   Avazu     │────▶│   Kafka     │────▶│   Flink     │
+│  train.gz   │     │  Producer   │     │  Streaming  │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+                    ┌──────────────────────────┼──────────────────────────┐
+                    │                          │                          │
+                    ▼                          ▼                          ▼
+            ┌─────────────┐           ┌─────────────┐            ┌─────────────┐
+            │  PostgreSQL │           │  로컬 파일   │            │  Checkpoint │
+            │  realtime   │           │  ./data     │            │             │
+            └──────┬──────┘           └──────┬──────┘            └─────────────┘
+                   │                         │
+                   ▼                         ▼
+            ┌─────────────┐           ┌─────────────┐
+            │  Streamlit  │           │   Airflow   │
+            │  실시간 CTR  │           │     dbt     │
+            └─────────────┘           └──────┬──────┘
+                                             │
+                                             ▼
+                                      ┌─────────────┐
+                                      │  PostgreSQL │
+                                      │  analytics  │
+                                      └──────┬──────┘
+                                             │
+                                             ▼
+                                      ┌─────────────┐
+                                      │  Metabase   │
+                                      └─────────────┘
 ```
-
----
-
-## 🚀 빠른 시작
-
-### 사전 요구사항
-- Python 3.9+
-- Docker & Docker Compose
-- GCP (BigQuery, GCS) 또는 AWS (Snowflake, S3) 계정
-- Google Ads / Meta Ads / Naver Ads API 접근 권한
-
-### 설치
-
-1. **저장소 클론 및 의존성 설치**
-   ```bash
-   git clone <repository-url>
-   cd marketing_roas
-
-   python -m venv venv
-   source venv/bin/activate  # Windows: venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
-
-2. **환경 변수 설정**
-   ```bash
-   cp .env.example .env
-   # .env 파일에 GCP 인증, API 키 등을 입력
-   ```
-
-3. **Airflow 시작 (Docker Compose)**
-   ```bash
-   docker-compose up -d
-   # http://localhost:8080 에서 Airflow UI 접속
-   ```
-
-4. **DAG 배포**
-   ```bash
-   cp airflow/dags/* <AIRFLOW_HOME>/dags/
-   ```
-
----
-
-## 📊 핵심 기능
-
-| 기능 | 상태 | 설명 |
-|------|------|------|
-| **F1** 다채널 데이터 수집 | 🔄 | Google/Meta/Naver Ads API |
-| **F2** Raw 데이터 저장 | 🔄 | GCS/S3에 날짜별 파티셔닝 |
-| **F3** 스키마 통합 | 🔄 | 공통 스키마로 정규화 |
-| **F4** 지표 계산 | 🔄 | CTR, CPC, CPA, ROAS, CVR |
-| **F5** DWH 적재 | 🔄 | BigQuery 3계층 (raw/staging/metrics) |
-| **F6** 대시보드 | ⏳ | Looker Studio 자동 리프레시 |
-| **F7** Airflow 스케줄링 | ⏳ | 매일 새벽 3시 자동 실행 |
-| **F8** 실제 광고 연계 | ⏳ | (선택) Google Ads 소액 캠페인 |
-
----
-
-## 🏆 성공 기준 (MVP)
-
-1. ✅ 매일 새벽 3시 BigQuery `metrics` 테이블에 최신 데이터 적재
-2. ✅ Looker Studio 대시보드 자동 리프레시 (매일 새벽 4시)
-3. ✅ 채널별·캠페인별 ROAS Top/Bottom 5 한눈에 확인
-
----
-
-## 📚 문서
-
-- [PROJECT_REQUIREMENTS.md](docs/PROJECT_REQUIREMENTS.md) - 상세 요구사항
-- [ARCHITECTURE.md](docs/ARCHITECTURE.md) - 기술 아키텍처 (준비 중)
-- [API_SETUP.md](docs/API_SETUP.md) - API 설정 가이드 (준비 중)
 
 ---
 
 ## 🛠️ 기술 스택
 
-| 레이어 | 기술 |
-|--------|------|
-| **데이터 수집** | Python, FastAPI, Google/Meta/Naver Ads APIs |
-| **오케스트레이션** | Apache Airflow |
-| **스토리지** | Google Cloud Storage (GCS) / AWS S3 |
-| **데이터 웨어하우스** | Google BigQuery |
-| **BI Tool** | Looker Studio |
-| **언어** | Python, SQL |
+| 레이어 | 기술 | 역할 |
+|--------|------|------|
+| Ingestion | Kafka, Schema Registry | 이벤트 스트리밍, 스키마 관리 |
+| Processing | PyFlink | 실시간 윈도우 집계 |
+| Orchestration | Airflow | 배치 파이프라인 스케줄링 |
+| Transform | dbt | SQL 기반 데이터 모델링 |
+| Storage | PostgreSQL | realtime/analytics/errors 스키마 |
+| Visualization | Streamlit, Metabase | 실시간/배치 대시보드 |
+| Monitoring | Prometheus, Grafana, Slack | 메트릭 수집, 알림 |
 
 ---
 
-## 📈 데이터 흐름
+## 📁 프로젝트 구조
 
 ```
-Google Ads API ─┐
-Meta Ads API   ─┼─→ [수집] → [Raw Storage] → [Staging] → [Metrics] → [BigQuery] → [Looker Studio]
-Naver Ads API  ─┘      │                                                              ↓
-                      Airflow                                              Dashboard (ROAS분석)
-                    (매일 3시)
+ad-click-pipeline/
+├── docker-compose.yml
+├── data/
+│   ├── raw/
+│   ├── processed/
+│   └── checkpoints/
+├── producer/
+│   ├── main.py
+│   ├── config.py
+│   └── requirements.txt
+├── flink/
+│   └── src/
+│       └── ctr_streaming.py
+├── airflow/
+│   └── dags/
+│       ├── dag_daily_etl.py
+│       └── dag_dbt_run.py
+├── dbt/
+│   ├── dbt_project.yml
+│   ├── profiles.yml
+│   └── models/
+│       ├── staging/
+│       ├── intermediate/
+│       └── marts/
+├── dlq_consumer/
+│   └── main.py
+├── streamlit/
+│   └── realtime_dashboard.py
+├── prometheus/
+│   └── prometheus.yml
+├── grafana/
+│   └── dashboards/
+└── scripts/
+    └── init_db.sql
 ```
 
 ---
 
-## 🔔 알림 설정
+## 🚀 실행 방법
 
-- **Slack**: DAG 실패 시 실시간 알림
-- **Email**: 일일 파이프라인 실행 결과 리포트
+### 1. 사전 요구사항
+
+- Docker 20.10+
+- Docker Compose 2.0+
+- 최소 RAM 16GB (권장 32GB)
+
+### 2. 데이터 다운로드
+
+```bash
+# Kaggle에서 Avazu 데이터셋 다운로드
+kaggle competitions download -c avazu-ctr-prediction
+unzip avazu-ctr-prediction.zip -d data/raw/
+```
+
+### 3. 서비스 실행
+
+```bash
+# 전체 서비스 실행
+docker-compose up -d
+
+# 상태 확인
+docker-compose ps
+```
+
+### 4. 접속 URL
+
+| 서비스 | URL |
+|--------|-----|
+| Airflow | http://localhost:8080 |
+| Streamlit | http://localhost:8501 |
+| Metabase | http://localhost:3000 |
+| Grafana | http://localhost:3001 |
+| Prometheus | http://localhost:9090 |
+| Flink UI | http://localhost:8082 |
 
 ---
 
-## 🤝 기여 가이드
+## 📊 데이터 흐름
 
-1. Feature Branch 생성: `git checkout -b feature/new-feature`
-2. 커밋: `git commit -am 'Add new feature'`
-3. Push: `git push origin feature/new-feature`
-4. Pull Request 생성
+### 실시간 파이프라인
+
+```
+Avazu CSV → Kafka Producer → ad_events_raw 토픽
+    → Flink (1분/5분 Tumbling Window)
+    → PostgreSQL realtime.ctr_metrics
+    → Streamlit 대시보드
+```
+
+### 배치 파이프라인
+
+```
+Flink → 로컬 파일 (./data/processed)
+    → Airflow dag_daily_etl
+    → dbt transform
+    → PostgreSQL analytics 스키마
+    → Metabase 대시보드
+```
+
+### 에러 처리 흐름
+
+```
+실패 이벤트 → DLQ 토픽 (ad_events_error)
+    → DLQ Consumer (retry 3회)
+    → 성공: 원본 토픽으로 재전송
+    → 실패: PostgreSQL errors 저장 + Slack 알림
+```
 
 ---
 
-## 📝 라이센스
+## 📈 PostgreSQL 스키마
+
+| 스키마 | 용도 | 주요 테이블 |
+|--------|------|-------------|
+| `realtime` | Flink 실시간 메트릭 | `ctr_metrics` |
+| `analytics` | dbt 마트 | `stg_ad_events`, `fct_daily_metrics` |
+| `errors` | DLQ 에러 로그 | `dlq_messages` |
+
+---
+
+## 🔧 dbt 모델
+
+```
+models/
+├── staging/
+│   └── stg_ad_events.sql        # 원본 정제
+├── intermediate/
+│   └── int_hourly_agg.sql       # 시간별 집계
+└── marts/
+    ├── fct_daily_metrics.sql    # 일별 KPI
+    └── dim_campaigns.sql        # 캠페인 마스터
+```
+
+---
+
+## 📡 모니터링
+
+### Grafana 대시보드
+- Kafka: Lag, Throughput, ISR
+- Flink: Checkpoint, Backpressure, Records/sec
+
+### Slack 알림
+- DLQ retry 실패
+- Airflow DAG 실패
+- dbt test 실패
+
+---
+
+## 🔮 향후 확장 계획
+
+### ML 파이프라인 추가
+```
+Redis (Feature Store) → FastAPI (예측 API) → MLflow (모델 관리)
+```
+
+### 클라우드 마이그레이션
+```
+PostgreSQL → Snowflake/Redshift
+로컬 파일 → S3
+dbt profiles.yml target만 변경
+```
+
+---
+
+## 📝 License
 
 MIT License
+```
 
 ---
 
-## 👤 연락처
-
-프로젝트 관련 문의: [당신의 이메일]
-
-**프로젝트 기간**: 2025-11-29 ~ 2025-12-29 (1개월)
+파일로 저장해줄까?
