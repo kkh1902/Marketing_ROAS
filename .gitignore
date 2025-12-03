@@ -36,6 +36,7 @@ Thumbs.db
 data/train.gz
 data/test.gz
 data/sampleSubmission.gz
+data/raw/*.gz
 
 # CSV 파일 (큼)
 data/raw/*.csv
