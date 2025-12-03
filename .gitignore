@@ -1,1 +1,5 @@
 .claude/
+
+# data 폴더 살리고 나머지 제외 파일 사이즈가 너무 큼
+data/*
+!data/.gitkeep
