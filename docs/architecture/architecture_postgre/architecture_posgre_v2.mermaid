@@ -1,0 +1,118 @@
+%% retry 로직 추가
+
+flowchart TB
+ subgraph S["Source Layer"]
+        A["Avazu train.gz<br>10일치 광고 로그 40M rows"]
+  end
+
+ subgraph I["Ingestion Layer"]
+        P["Kafka Producer Python<br>row to JSON 이벤트"]
+        SR["Schema Registry<br>Docker"]
+  end
+
+ subgraph K["Streaming Layer - Kafka"]
+        K1[("Kafka Topic<br>ad_events_raw<br>partition=3")]
+        K2[("DLQ Topic<br>ad_events_error")]
+        KR[("Retry Topic<br>ad_events_retry")]
+        K3["JMX Exporter"]
+  end
+
+ subgraph RETRY["Retry Processing"]
+        RC["Retry Consumer<br>재시도 → 성공 시 raw로 재삽입"]
+  end
+
+ subgraph DLQ["DLQ Processing"]
+        DC["DLQ Consumer<br>retry 실패 최종 보관 + Slack 알림"]
+  end
+
+ subgraph F["Flink Realtime Compute"]
+        F1["PyFlink Streaming Job<br>Event Time + Watermark<br>1분 5분 Tumbling Window"]
+        F2["Flink Metrics"]
+        F3[("로컬 Checkpoint<br>./data/checkpoints")]
+  end
+
+ subgraph B["Batch Layer"]
+        B1[("로컬 파일<br>./data/raw<br>./data/processed")]
+        AF["Airflow<br>localhost:8080"]
+        B3["dbt Transform"]
+        B4["dbt tests"]
+  end
+
+ subgraph AFD["Airflow DAGs"]
+        D1["dag_daily_etl"]
+        D2["dag_dbt_run"]
+  end
+
+ subgraph PGS["PostgreSQL Docker"]
+        PG[("realtime schema<br>실시간 메트릭")]
+        DW[("analytics schema<br>DW 마트")]
+        ERR[("errors schema<br>DLQ 에러")]
+  end
+
+ subgraph A2["Analytics Layer"]
+        ST["Streamlit<br>실시간 CTR 대시보드<br>localhost:8501"]
+        MB["Metabase<br>localhost:3000"]
+  end
+
+ subgraph AL["Monitoring"]
+        AL1["Slack Alert"]
+        PR["Prometheus<br>localhost:9090"]
+        GF["Grafana<br>localhost:3001"]
+  end
+
+    %% ingestion
+    A --> P --> SR --> K1
+
+    %% flink
+    K1 --> F1
+    F1 --> PG
+    F1 --> F3
+    F1 --> B1
+    F1 --> F2
+
+    %% error flows
+    P -. 파싱 실패 .-> K2
+    F1 -. 처리 실패 .-> KR
+
+    %% retry
+    KR --> RC
+    RC -- 재시도 성공 → raw로 재삽입 --> K1
+    RC -- 재시도 실패 → DLQ 이동 --> K2
+
+    %% dlq
+    K2 --> DC
+    DC --> ERR
+    DC --> AL1
+
+    %% batch
+    B1 --> AF --> B3 --> B4 --> DW --> MB
+    ERR --> MB
+
+    %% airflow
+    B1 --> D1 --> D2 --> B3
+
+    %% monitoring
+    K3 --> PR --> GF
+    PR --> AL1
+    F2 --> PR
+    AF -. DAG 실패 .-> AL1
+    B4 -. test 실패 .-> AL1
+
+    %% styles
+    classDef source fill:#EAF4FF,stroke:#6BA8E5,stroke-width:1px
+    classDef kafka fill:#FFF4E6,stroke:#FFB95A,stroke-width:1px
+    classDef flink fill:#E8FFE8,stroke:#66CC66,stroke-width:1px
+    classDef batch fill:#F3E8FF,stroke:#B084F7,stroke-width:1px
+    classDef analytics fill:#FFF1F7,stroke:#FF7AAE,stroke-width:1px
+    classDef alert fill:#FFEAEA,stroke:#FF6B6B,stroke-width:1px
+    classDef error fill:#FFE4E4,stroke:#FF4444,stroke-width:1px
+    classDef local fill:#E8FFE8,stroke:#228B22,stroke-width:2px
+
+    class A,P,SR source
+    class K1,K2,KR,K3 kafka
+    class F1,F2,F3 flink
+    class RC,DC error
+    class B1,AF,B3,B4,D1,D2 batch
+    class PG,DW,ERR local
+    class ST,MB analytics
+    class AL1,PR,GF alert
