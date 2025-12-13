@@ -1,4 +1,30 @@
+###############################################################
+# DOCKER COMPOSE SERVICE ORDER (ARCHITECTURE GUIDE)
+#
+# 1) Zookeeper (Kafka 의존성 처리)
+# 2) Kafka Broker
+# 3) Schema Registry (Kafka 의존)
+#
+# 4) Kafka Connect / ksqlDB / Confluent Control Center
+# 5) Prometheus / Grafana / Exporters
+#
+# 6) Application Layer (Producer / Consumer / Stream apps)
+# 7) Databases (Postgres / MySQL / Redis / MongoDB)
+# 8) Big Data / Processing (Airflow / Flink / Spark)
+#
+# 즉, "기초 → 핵심 → 부가 → 애플리케이션" 순으로 배치한다.
+#
+# Docker Compose 자체는 실행 순서를 강제하지 않지만,
+# 구성 파일을 읽는 사람을 위해
+# 서비스 역할과 의존 기반으로 논리적 순서를 유지하는 것이 좋다.
+###############################################################
+
+
 services:
+
+# ============================================================
+# ZOOKEEPER
+# ============================================================
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     hostname: zookeeper
@@ -9,6 +35,10 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
 
+
+# ============================================================
+# KAFKA BROKER
+# ============================================================
   broker:
     image: confluentinc/cp-server:7.5.0
     hostname: broker
@@ -38,6 +68,10 @@ services:
       CONFLUENT_METRICS_ENABLE: 'true'
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
 
+# ============================================================
+# SCHEMA REGISTRY
+# ============================================================
+
   schema-registry:
     image: confluentinc/cp-schema-registry:7.5.0
     hostname: schema-registry
@@ -51,7 +85,10 @@ services:
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
 
+
+
   # Redis 추후 추가
   # Airflow
   # flink
   # jupyter
+  # jmx exporter

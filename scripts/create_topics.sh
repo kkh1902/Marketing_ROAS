@@ -27,14 +27,31 @@ echo "================================"
 echo "Creating Kafka Topics..."
 echo "================================"
 
+# ============================================================
+# 운영용 토픽 (Production)
+# ============================================================
+
 # 1. 메인 토픽: 광고 이벤트 (실시간 처리)
 create_topic "ad_events_raw" 3 1
 
 # 2. DLQ: 처리 실패한 메시지
-create_topic "ad_events_error" 1 1
+create_topic "ad_events_dlq" 1 1
 
 # 3. 리트라이: 재처리 대기
 create_topic "ad_events_retry" 1 1
+
+# ============================================================
+# 테스트용 토픽 (Testing)
+# ============================================================
+
+# 4. 테스트: 광고 이벤트 (단위/통합/E2E 테스트)
+create_topic "test_ad_events_raw" 1 1
+
+# 5. 테스트: DLQ (테스트용 실패 메시지)
+create_topic "test_ad_events_dlq" 1 1
+
+# 6. 테스트: 리트라이 (테스트용 재처리)
+create_topic "test_ad_events_retry" 1 1
 
 echo ""
 echo "✅ Topic creation completed"
