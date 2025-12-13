@@ -17,8 +17,5 @@ COPY . .
 COPY utils ../utils
 COPY .env .
 
-# DLQ 디렉토리 생성
-RUN mkdir -p /app/logs/dlq /app/data/dlq
-
 # Consumer 실행
-CMD ["python", "-m", "kafka.consumers.dlq_consumer.main"]
+CMD ["python", "-m", "kafka.consumers.retry_consumer.main"]

@@ -1,5 +1,5 @@
 """
-Kafka DLQ (Dead Letter Queue) Consumer 설정
+Kafka Retry Consumer 설정
 """
 
 import os
@@ -8,13 +8,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
-class DLQConsumerConfig:
-    """Kafka DLQ Consumer 설정"""
+class RetryConsumerConfig:
+    """Kafka Retry Consumer 설정"""
 
     # Kafka Broker
     BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
-    TOPIC = os.getenv('KAFKA_DLQ_TOPIC', 'ad_events_dlq')
-    GROUP_ID = os.getenv('DLQ_CONSUMER_GROUP_ID', 'dlq_consumer_group')
+    TOPIC = os.getenv('KAFKA_RETRY_TOPIC', 'ad_events_retry')
+    GROUP_ID = os.getenv('RETRY_CONSUMER_GROUP_ID', 'retry_consumer_group')
 
     # Consumer 설정
     AUTO_OFFSET_RESET = os.getenv('AUTO_OFFSET_RESET', 'earliest')
@@ -23,9 +23,13 @@ class DLQConsumerConfig:
     MAX_POLL_RECORDS = int(os.getenv('MAX_POLL_RECORDS', 500))
     ISOLATION_LEVEL = os.getenv('ISOLATION_LEVEL', 'read_committed')
 
-    # DLQ 저장소 설정
-    DLQ_LOG_DIR = os.getenv('DLQ_LOG_DIR', 'logs/dlq')
-    DLQ_DB_PATH = os.getenv('DLQ_DB_PATH', 'data/dlq/dlq.db')
+    # 재시도 설정
+    MAX_RETRIES = int(os.getenv('MAX_RETRIES', 3))
+    RETRY_BACKOFF_MS = int(os.getenv('RETRY_BACKOFF_MS', 1000))
+    RETRY_BACKOFF_MAX_MS = int(os.getenv('RETRY_BACKOFF_MAX_MS', 32000))
+
+    # Dead Letter Topic
+    DLQ_TOPIC = os.getenv('KAFKA_DLQ_TOPIC', 'ad_events_dlq')
 
     # 로깅
     LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
@@ -46,21 +50,15 @@ class DLQConsumerConfig:
     @classmethod
     def validate(cls):
         """설정 검증"""
-        import os as _os
-
         print("=" * 60)
-        print("Kafka DLQ Consumer 설정")
+        print("Kafka Retry Consumer 설정")
         print("=" * 60)
         print(f"Bootstrap Servers: {cls.BOOTSTRAP_SERVERS}")
         print(f"Topic: {cls.TOPIC}")
         print(f"Group ID: {cls.GROUP_ID}")
-        print(f"DLQ 로그 디렉토리: {cls.DLQ_LOG_DIR}")
-        print(f"DLQ 데이터베이스 경로: {cls.DLQ_DB_PATH}")
+        print(f"최대 재시도 횟수: {cls.MAX_RETRIES}")
+        print(f"DLQ Topic: {cls.DLQ_TOPIC}")
         print("=" * 60)
-
-        # DLQ 디렉토리 생성
-        _os.makedirs(cls.DLQ_LOG_DIR, exist_ok=True)
-        _os.makedirs(_os.path.dirname(cls.DLQ_DB_PATH), exist_ok=True)
 
         print("설정 검증 완료")
         return True
