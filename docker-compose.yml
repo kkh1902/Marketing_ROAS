@@ -34,6 +34,8 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    networks:
+      - marketing_network
 
 
 # ============================================================
@@ -67,6 +69,8 @@ services:
       CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
       CONFLUENT_METRICS_ENABLE: 'true'
       CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+    networks:
+      - marketing_network
 
 # ============================================================
 # SCHEMA REGISTRY
@@ -84,11 +88,65 @@ services:
       SCHEMA_REGISTRY_HOST_NAME: schema-registry
       SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: 'broker:29092'
       SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+    networks:
+      - marketing_network
+
+# ============================================================
+# FLINK
+# ============================================================
+
+  jobmanager:
+    image: apache/flink:1.17.1
+    container_name: jobmanager
+    hostname: jobmanager
+    ports:
+      - "8085:8081"
+    volumes:
+      - ./flink:/opt/flink/usrlib
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+    command: jobmanager
+    networks:
+      - marketing_network
+
+  taskmanager:
+    image: apache/flink:1.17.1
+    container_name: taskmanager
+    hostname: taskmanager
+    depends_on:
+      - jobmanager
+    volumes:
+      - ./flink:/opt/flink/usrlib
+    environment:
+      - JOB_MANAGER_RPC_ADDRESS=jobmanager
+      - TASK_MANAGER_NUMBER_OF_TASK_SLOTS=4
+    command: taskmanager
+    networks:
+      - marketing_network
+
+  pyflink-job:
+    build:
+      context: ./flink
+      dockerfile: Dockerfile
+    depends_on:
+      - jobmanager
+      - taskmanager
+      - broker
+    volumes:
+      - ./flink:/opt/flink/usrlib
+    entrypoint:  ["flink", "run", "-m", "jobmanager:8081", "-py", "/opt/flink/usrlib/src/simple_flink_test.py"]
+    networks:
+      - marketing_network
 
 
-
-  # Redis 추후 추가
+  # Redis
   # Airflow
   # flink
   # jupyter
-  # jmx exporter
+
+# ============================================================
+# NETWORKS
+# ============================================================
+networks:
+  marketing_network:
+    driver: bridge
