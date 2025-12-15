@@ -78,6 +78,15 @@ pgdata/
 docker-compose.override.yml
 .dockerignore
 
+# ==================== Flink & Java ====================
+# JAR 파일은 무시하지만 setup 스크립트는 추적
+flink/lib/*.jar
+!flink/lib/setup-flink.sh
+!flink/lib/.gitkeep
+*.jar
+target/
+*.class
+
 # ==================== Airflow ====================
 airflow/logs/
 airflow/dags/__pycache__/
@@ -132,6 +141,8 @@ service-account-key.json
 # ==================== backup ====================
 backup/
 
-# ==================== vent ====================
+# ==================== vent ======================
 venv/
 
+# ==================== .vscode ===================
+.vscode/
