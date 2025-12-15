@@ -1,0 +1,66 @@
+services:
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    restart: unless-stopped
+    networks:
+      - marketing_network
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    ports:
+      - 3000:3000
+    volumes:
+      - grafana_data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+    networks:
+      - marketing_network
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:latest
+    container_name: kafka-exporter
+    command:
+      - --kafka.broker=broker:29092
+    ports:
+      # Exposes the exporter's metrics port (default 9308) to your host
+      - "9308:9308"
+    restart: unless-stopped
+    networks:
+      - marketing_network
+
+
+
+  jmx-exporter:
+    image: sscaling/jmx-prometheus-exporter:latest # A common JMX exporter image
+    ports:
+      - "9072:9072" # Port for Prometheus to scrape metrics
+    volumes:
+      - ./jmx-exporter/config.yml:/opt/jmx_exporter/config.yml
+    environment:
+      SERVICE_PORT: 9072
+    networks:
+      - marketing_network
+
+# ============================================================
+# NETWORKS
+# ============================================================
+networks:
+  marketing_network:
+    driver: bridge
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}

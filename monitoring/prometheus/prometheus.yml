@@ -1,27 +1,23 @@
 global:
-  scrape_interval: 15s
+  scrape_interval: 15s # 스크랩 주기 (기본값)
   evaluation_interval: 15s
-  external_labels:
-    monitor: 'kafka-monitoring'
-    environment: 'dev'
-
-alerting:
-  alertmanagers:
-    - static_configs:
-        - targets: []
-
-rule_files: []
 
 scrape_configs:
   - job_name: 'prometheus'
-    honor_timestamps: true
-    scrape_interval: 15s
-    scrape_timeout: 10s
-    metrics_path: '/metrics'
-    scheme: http
     static_configs:
-      - targets: ['prometheus:9090']
-        labels:
-          instance: 'prometheus-local'
-          service: 'prometheus'
+      - targets: ['localhost:9090'] # Prometheus 자체 메트릭 스크랩
+      # TODO: localhost → prometheus로 변경 (Docker 컨테이너 내부에서는 localhost 사용 불가)
+      # 수정: targets: ['prometheus:9090']
 
+  # TODO: 아래 3개 job 추가 필요
+  # - job_name: 'kafka-exporter'
+  #   static_configs:
+  #     - targets: ['kafka-exporter:9308']
+  #
+  # - job_name: 'jmx-exporter'
+  #   static_configs:
+  #     - targets: ['jmx-exporter:9072']
+  #
+  # - job_name: 'flink'
+  #   static_configs:
+  #     - targets: ['jobmanager:8081']
