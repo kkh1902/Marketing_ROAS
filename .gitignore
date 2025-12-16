@@ -57,12 +57,14 @@ data/checkpoints/
 logs/
 *.log.*
 
-# ==================== Cache ====================
+# ==================== Cache & Testing ====================
 .pytest_cache/
 .cache/
 .coverage
 htmlcov/
 .hypothesis/
+pytest.ini  # pytest 설정은 pyproject.toml 사용
+*.ini      # 기타 .ini 파일들
 
 # ==================== Jupyter ====================
 .ipynb_checkpoints/
@@ -146,3 +148,6 @@ venv/
 
 # ==================== .vscode ===================
 .vscode/
+
+# ==================== database(local_mount) ===================
+pgdata/

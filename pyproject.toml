@@ -1,0 +1,86 @@
+[project]
+name = "marketing-roas"
+version = "0.1.0"
+description = "Real-time CTR Streaming with Flink, Kafka, and PostgreSQL"
+requires-python = ">=3.10"
+
+[tool.pytest.ini_options]
+# 테스트 경로
+testpaths = ["tests"]
+pythonpath = ["."]
+
+# Python 파일 찾기 패턴
+python_files = ["test_*.py", "*_test.py"]
+
+# 테스트 함수 패턴
+python_functions = ["test_*"]
+
+# 테스트 클래스 패턴
+python_classes = ["Test*"]
+
+# 출력 옵션
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--tb=short",
+    "--disable-warnings",
+    "--import-mode=importlib",
+]
+
+# 마커 정의
+markers = [
+    "unit: 단위 테스트",
+    "integration: 통합 테스트",
+    "e2e: E2E 테스트",
+    "kafka: Kafka 관련 테스트",
+    "producer: Producer 테스트",
+    "consumer: Consumer 테스트",
+    "slow: 느린 테스트",
+    "flink: Flink 관련 테스트",
+    "models: 데이터 모델 테스트",
+    "avro: Avro 직렬화 테스트",
+    "config: 설정 테스트",
+]
+
+# 최소 pytest 버전
+minversion = "7.0"
+
+# Doctest 옵션
+doctest_optionflags = "NORMALIZE_WHITESPACE ELLIPSIS"
+
+[tool.black]
+line-length = 100
+target-version = ["py310"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_mode = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true
+line_length = 100
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[build-system]
+requires = ["setuptools>=65.0"]
+build-backend = "setuptools.build_meta"
