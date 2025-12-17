@@ -1,12 +1,10 @@
 """
-Integration 테스트: Producer 실제 Kafka 연동
+Integration 테스트: Producer - Kafka 연동
 
 테스트:
-- CSV 읽기 → 실제 변환 → 실제 Kafka 전송
-- 메시지 검증
-- 배치 처리
-
-테스트 토픽: test_ad_events_raw
+- CSV 읽기 → Kafka 발행
+- Kafka에서 메시지 수신 확인
+- 배치 메시지 발행
 """
 
 import pytest
@@ -14,16 +12,12 @@ import json
 import csv
 import tempfile
 import os
-import sys
-from datetime import datetime
-
-# Integration conftest 변수 가져오기
 from tests.integration.conftest import TEST_RAW_TOPIC
 
 
 @pytest.mark.integration
-class TestProducerIntegration:
-    """Producer의 실제 Kafka 연동 테스트"""
+class TestProducerKafkaIntegration:
+    """Producer의 Kafka 연동 테스트"""
 
     @pytest.fixture
     def sample_csv_file(self):
@@ -79,8 +73,7 @@ class TestProducerIntegration:
             shutil.rmtree(temp_dir)
 
     def test_produce_single_message(self, kafka_producer, kafka_consumer):
-        """단일 메시지 발행 및 수신"""
-        # 1. 메시지 발행
+        """단일 메시지 Kafka 발행 및 수신"""
         test_message = {
             'id': 1.0e+19,
             'click': 0,
@@ -90,26 +83,30 @@ class TestProducerIntegration:
             'test_type': 'single_message'
         }
 
+        # 1. 메시지 발행
         kafka_producer.send(TEST_RAW_TOPIC, test_message)
         kafka_producer.flush()
 
-        # 2. 메시지 수신 및 검증
+        # 2. 메시지 수신
         kafka_consumer.subscribe([TEST_RAW_TOPIC])
-
         received_message = None
+
         for msg in kafka_consumer:
             if msg.value and msg.value.get('test_type') == 'single_message':
                 received_message = msg.value
                 break
 
-        assert received_message is not None, "메시지를 받지 못했습니다"
+        # 3. 검증
+        assert received_message is not None, "메시지를 수신하지 못했습니다"
+        assert received_message['id'] == 1.0e+19
         assert received_message['click'] == 0
         assert received_message['site_id'] == 'test_site'
 
     def test_produce_batch_messages(self, kafka_producer, kafka_consumer):
-        """배치 메시지 발행 및 수신"""
-        # 1. 배치 메시지 발행
+        """배치 메시지 Kafka 발행 및 수신"""
         batch_size = 10
+
+        # 1. 배치 메시지 발행
         for i in range(batch_size):
             message = {
                 'id': float(i),
@@ -134,53 +131,41 @@ class TestProducerIntegration:
                 break
 
         # 3. 검증
-        assert len(received_messages) == batch_size, f"배치 메시지 수 불일치: {len(received_messages)} != {batch_size}"
+        assert len(received_messages) == batch_size, f"배치 크기 불일치: {len(received_messages)} != {batch_size}"
 
-    def test_produce_with_data_transformation(self, kafka_producer, kafka_consumer):
-        """데이터 변환 후 발행"""
-        # 1. 원본 데이터 (CSV 형식)
-        raw_data = {
-            'id': '1.4199688212321208e+19',
-            'click': '0',
-            'hour': '14102101',
-            'banner_pos': '0',
-            'site_id': '12fb4121',
-            'site_domain': '6b59f079',
-            'site_category': 'f028772b',
-            'app_id': 'ecad2386',
-            'app_domain': '7801e8d9',
-            'app_category': '07d7df22',
-            'device_id': 'a99f214a',
-            'device_ip': '183586aa',
-            'device_model': '8bfcd3c6',
-            'device_type': '1',
-            'device_conn_type': '0',
-            'C1': '20970',
-            'C14': '320',
-            'C15': '50',
-            'C16': '2372',
-            'C17': '0',
-            'C18': '813',
-            'C19': '-1',
-            'C20': '46',
-            'C21': '100',
-            'test_type': 'transformed_data'
-        }
+        # 각 메시지가 올바른 batch_id를 가지고 있는지 확인
+        for i, msg in enumerate(received_messages):
+            assert msg['batch_id'] == i
+            assert msg['click'] == i % 2
 
-        # 2. 변환 후 발행
-        kafka_producer.send(TEST_RAW_TOPIC, raw_data)
+    def test_produce_csv_data(self, kafka_producer, kafka_consumer, sample_csv_file):
+        """CSV 파일 읽기 후 Kafka 발행"""
+        # 1. CSV 파일 읽기 및 발행
+        with open(sample_csv_file, 'r', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                row['test_type'] = 'csv_data'
+                kafka_producer.send(TEST_RAW_TOPIC, row)
+
         kafka_producer.flush()
 
-        # 3. 수신 및 검증
+        # 2. 메시지 수신
         kafka_consumer.subscribe([TEST_RAW_TOPIC])
+        received_messages = []
 
-        received_message = None
         for msg in kafka_consumer:
-            if msg.value and msg.value.get('test_type') == 'transformed_data':
-                received_message = msg.value
+            if msg.value and msg.value.get('test_type') == 'csv_data':
+                received_messages.append(msg.value)
+
+            if len(received_messages) >= 5:
                 break
 
-        assert received_message is not None
-        # 타입 검증
-        assert isinstance(received_message['id'], str)
-        assert isinstance(received_message['click'], str)
+        # 3. 검증
+        assert len(received_messages) == 5, f"CSV 데이터 수신 실패: {len(received_messages)} != 5"
+
+        # 첫 번째 메시지 필드 확인
+        first_msg = received_messages[0]
+        assert 'id' in first_msg
+        assert 'click' in first_msg
+        assert 'hour' in first_msg
+        assert 'site_id' in first_msg
