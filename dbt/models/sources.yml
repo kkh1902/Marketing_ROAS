@@ -1,0 +1,94 @@
+version: 2
+
+sources:
+  - name: realtime
+    description: "Flink 스트리밍 파이프라인에서 저장한 실시간 데이터"
+    database: marketing_roas
+    schema: realtime
+    tables:
+      - name: ad_events
+        description: "원본 광고 클릭 이벤트 (Avazu CTR 데이터)"
+        loaded_at_field: created_at
+        columns:
+          - name: id
+            description: "이벤트 고유 ID"
+            tests:
+              - not_null
+              - unique
+
+          - name: click
+            description: "클릭 여부 (0 또는 1)"
+            tests:
+              - not_null
+              - accepted_values:
+                  values: [0, 1]
+
+          - name: hour
+            description: "이벤트 발생 시간"
+            tests:
+              - not_null
+
+          - name: banner_pos
+            description: "배너 위치"
+
+          - name: site_id
+            description: "사이트 ID"
+            tests:
+              - not_null
+
+          - name: site_domain
+            description: "사이트 도메인"
+
+          - name: site_category
+            description: "사이트 카테고리"
+
+          - name: app_id
+            description: "앱 ID"
+
+          - name: app_domain
+            description: "앱 도메인"
+
+          - name: app_category
+            description: "앱 카테고리"
+
+          - name: device_id
+            description: "디바이스 ID"
+
+          - name: device_ip
+            description: "디바이스 IP"
+
+          - name: device_model
+            description: "디바이스 모델"
+
+          - name: device_type
+            description: "디바이스 타입"
+
+          - name: device_conn_type
+            description: "디바이스 연결 타입"
+
+          - name: c1
+            description: "익명화 범주 1"
+
+          - name: c14
+            description: "익명화 범주 14"
+
+          - name: c15
+            description: "익명화 범주 15"
+
+          - name: c16
+            description: "익명화 범주 16"
+
+          - name: c17
+            description: "익명화 범주 17"
+
+          - name: c18
+            description: "익명화 범주 18"
+
+          - name: c19
+            description: "익명화 범주 19"
+
+          - name: c20
+            description: "익명화 범주 20"
+
+          - name: c21
+            description: "익명화 범주 21"

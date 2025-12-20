@@ -1,0 +1,56 @@
+version: 2
+
+models:
+  - name: dim_campaigns
+    description: "캠페인 마스터 테이블 (사이트/앱/배너/디바이스 조합)"
+    columns:
+      - name: campaign_id
+        description: "캠페인 대체 키 (Surrogate Key)"
+        tests:
+          - not_null
+          - unique
+
+      - name: site_id
+        description: "사이트 ID"
+
+      - name: site_domain
+        description: "사이트 도메인"
+
+      - name: site_category
+        description: "사이트 카테고리"
+
+      - name: app_id
+        description: "앱 ID"
+
+      - name: app_domain
+        description: "앱 도메인"
+
+      - name: app_category
+        description: "앱 카테고리"
+
+      - name: banner_pos
+        description: "배너 위치"
+
+      - name: device_type
+        description: "디바이스 타입"
+
+      - name: is_active
+        description: "활성 여부 (1: 활성)"
+        tests:
+          - accepted_values:
+              values: [0, 1]
+
+      - name: created_at
+        description: "생성 시간"
+        tests:
+          - not_null
+
+      - name: updated_at
+        description: "마지막 업데이트 시간"
+        tests:
+          - not_null
+
+      - name: dbt_loaded_at
+        description: "dbt 처리 시간"
+        tests:
+          - not_null
