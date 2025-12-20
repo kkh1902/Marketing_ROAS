@@ -1,0 +1,13 @@
+marketing_roas:
+  target: dev
+  outputs:
+    dev:
+      type: postgres
+      host: localhost
+      user: postgres
+      password: postgres
+      port: 5432
+      dbname: marketing_roas
+      schema: analytics
+      threads: 4
+      keepalives_idle: 0
