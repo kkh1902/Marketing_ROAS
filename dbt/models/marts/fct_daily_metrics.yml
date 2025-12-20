@@ -1,0 +1,71 @@
+version: 2
+
+models:
+  - name: fct_daily_metrics
+    description: "일별 KPI 팩트 테이블 (최종 분석용, CTR 및 성과 메트릭)"
+    columns:
+      - name: event_date
+        description: "이벤트 날짜"
+        tests:
+          - not_null
+          - unique_combination_of_columns:
+              combination_of_columns:
+                - event_date
+                - site_id
+                - device_type
+
+      - name: site_id
+        description: "사이트 ID"
+        tests:
+          - not_null
+
+      - name: site_domain
+        description: "사이트 도메인"
+
+      - name: site_category
+        description: "사이트 카테고리"
+
+      - name: device_type
+        description: "디바이스 타입"
+
+      - name: daily_total_impressions
+        description: "일별 총 노출 수"
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "daily_total_impressions >= 0"
+
+      - name: daily_total_clicks
+        description: "일별 총 클릭 수"
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "daily_total_clicks >= 0"
+
+      - name: daily_ctr_percentage
+        description: "일별 클릭률 (%)"
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "daily_ctr_percentage <= 100 and daily_ctr_percentage >= 0"
+
+      - name: hours_with_data
+        description: "데이터가 있는 시간 개수"
+        tests:
+          - not_null
+          - dbt_utils.expression_is_true:
+              expression: "hours_with_data > 0"
+
+      - name: clicks_dod_pct_change
+        description: "전일 대비 클릭 수 변화율 (%)"
+
+      - name: clicks_7day_moving_avg
+        description: "클릭 7일 이동평균"
+
+      - name: ctr_7day_moving_avg
+        description: "CTR 7일 이동평균"
+
+      - name: dbt_loaded_at
+        description: "dbt 처리 시간"
+        tests:
+          - not_null
